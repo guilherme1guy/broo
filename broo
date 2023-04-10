@@ -57,7 +57,7 @@ start_mumble_client() {
     # Starts the Mumble client, stores its PID, and waits till connection.
 
     # Start the client with logs for monitoring, and save PID.
-    nohup mumble "mumble://127.0.0.1" -platform offscreen \
+    nohup mumble "mumble://127.0.0.1" \
         &>"$VAR_RUN/mumble_client.out" &
     echo $! >"$VAR_RUN/mumble_client.pid"
 
