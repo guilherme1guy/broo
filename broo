@@ -22,13 +22,11 @@
 
 ##############################################################################
 
-
 # Exit on errors.
 set -euo pipefail
 
 # Folder to store our ephemeral files containing PIDs etc.
 VAR_RUN="/var/run/user/$UID/broo"
-
 
 start_mumble_server() {
     # Starts the Mumble server.
@@ -41,11 +39,10 @@ start_mumble_server() {
         nohup murmurd -ini ~/.config/broo/murmur.ini &>"$VAR_RUN/murmur.out" &
     fi
 
-    echo $! > "$VAR_RUN/murmur.pid"
+    echo $! >"$VAR_RUN/murmur.pid"
 
-    sleep 3  # Give time for it to set up.
-}  # End of start_mumble_server()
-
+    sleep 3 # Give time for it to set up.
+}           # End of start_mumble_server()
 
 stop_mumble_server() {
     # Stops the Mumble server, and deletes the PID file if it remains.
@@ -54,23 +51,21 @@ stop_mumble_server() {
     kill $(<"$VAR_RUN/murmur.pid")
     rm "$VAR_RUN/murmur.pid"
     rm "$VAR_RUN/murmur.out"
-}  # End of stop_mumble_server()
+} # End of stop_mumble_server()
 
-
-start_mumble_client () {
+start_mumble_client() {
     # Starts the Mumble client, stores its PID, and waits till connection.
 
     # Start the client with logs for monitoring, and save PID.
     nohup mumble "mumble://127.0.0.1" -platform offscreen \
         &>"$VAR_RUN/mumble_client.out" &
-    echo $! > "$VAR_RUN/mumble_client.pid"
+    echo $! >"$VAR_RUN/mumble_client.pid"
 
     # Wait till the user connects (presses OK).
     # Thanks to 00prometheus on <https://superuser.com/a/900134>.
     (tail -f "$VAR_RUN/mumble_client.out" &) | grep --line-buffered -q \
-                                                    "ServerHandler:"
-}  # End of start_mumble_client()
-
+        "ServerHandler:"
+} # End of start_mumble_client()
 
 stop_mumble_client() {
     # Stops the Mumble client, and deletes the PID file.
@@ -79,8 +74,7 @@ stop_mumble_client() {
     kill $(<"$VAR_RUN/mumble_client.pid")
     rm "$VAR_RUN/mumble_client.pid"
     rm "$VAR_RUN/mumble_client.out"
-}  # End of stop_mumble_client()
-
+} # End of stop_mumble_client()
 
 get_mumble_sink_input_index() {
     # Returns / echo's the sink input number/index of Mumble client.
@@ -89,17 +83,16 @@ get_mumble_sink_input_index() {
     prop="application.name = \"Mumble\""
 
     # Loop over pactl output to get the sink index of Mumble.
-    while IFS= read -r line ; do
+    while IFS= read -r line; do
         if [[ ${line:0:12} == "Sink Input #" ]]; then
             mumble_sink_index="${line:12}"
         elif [[ ${line:2} == $prop ]]; then
             break
         fi
-    done <<< $(pactl list sink-inputs)
+    done <<<$(pactl list sink-inputs)
 
     echo $mumble_sink_index
-}  # End of get_mumble_sink_input_index()
-
+} # End of get_mumble_sink_input_index()
 
 configure_sink() {
     # Configures the Broo sink created for further use.
@@ -116,20 +109,18 @@ configure_sink() {
     pactl move-sink-input $(get_mumble_sink_input_index) Broo
 
     echo -e "Done! Use \"Monitor of Broo\" as your input mic, and enjoy!\n"
-}  # End of configure_sink()
-
+} # End of configure_sink()
 
 add_mic_pipewire() {
     # Creates a virtual mic by creating a PipeWire loopback, and saves its PID.
 
     nohup pw-loopback \
-    --capture-props='media.class=Audio/Sink
+        --capture-props='media.class=Audio/Sink
                      node.name=Broo node.description=Broo' &>/dev/null 2>&1 &
 
-    echo $! > "$VAR_RUN/pw_loopback.pid"
-    sleep 3  # Give time for it to set up.
-}  # End of add_mic_pipewire()
-
+    echo $! >"$VAR_RUN/pw_loopback.pid"
+    sleep 3 # Give time for it to set up.
+}           # End of add_mic_pipewire()
 
 remove_mic_pipewire() {
     # Removes the PipeWire loopback, and deletes the PID file.
@@ -137,26 +128,24 @@ remove_mic_pipewire() {
     echo -n "."
     kill $(<"$VAR_RUN/pw_loopback.pid")
     rm "$VAR_RUN/pw_loopback.pid"
-}  # End of remove_mic_pipewire()
-
+} # End of remove_mic_pipewire()
 
 add_mic_pulseaudio() {
     # Loads a sink using pactl, and saves the index returned.
 
     # Add sink and save the index it returns.
     pa_index=$(pactl load-module module-null-sink \
-                     sink_name="Broo" \
-                     sink_properties=device.description="Broo")
+        sink_name="Broo" \
+        sink_properties=device.description="Broo")
 
-    echo $pa_index > "$VAR_RUN/pa_sink.index"
-    sleep 3  # Give time for it to set up.
+    echo $pa_index >"$VAR_RUN/pa_sink.index"
+    sleep 3 # Give time for it to set up.
 
     # Restore ALSA settings if the backup file exists.
     if [ -f ~/.config/asound.state ]; then
         alsactl --file ~/.config/asound.state restore
     fi
-}  # End of add_mic_pulseaudio()
-
+} # End of add_mic_pulseaudio()
 
 remove_mic_pulseaudio() {
     # Unloads the PulseAudio sink, and deletes the index file.
@@ -164,8 +153,7 @@ remove_mic_pulseaudio() {
     echo -n "."
     pactl unload-module $(<"$VAR_RUN/pa_sink.index")
     rm "$VAR_RUN/pa_sink.index"
-}  # End of remove_mic_pulseaudio()
-
+} # End of remove_mic_pulseaudio()
 
 check_if_started() {
     # Check if the fodler already exists.
@@ -175,8 +163,7 @@ check_if_started() {
         echo "To force start, use 'f' on the starting prompt."
         return 1
     fi
-}  # End of check_if_started()
-
+} # End of check_if_started()
 
 start_broo() {
     # Starts Broo with its required things.
@@ -199,11 +186,10 @@ start_broo() {
     configure_sink
 
     server_ip=$(ip -4 a | grep "state UP" -A1 |
-                awk 'NR!=1 {print $2}' | cut -d '/' -f1)
+        awk 'NR!=1 {print $2}' | cut -d '/' -f1)
 
     echo "Connect to Broo's server on $server_ip :)"
-}  # End of start_broo()
-
+} # End of start_broo()
 
 fix_certificate_problem() {
     # Sometimes the client doesn't connect to server because of certificate.
@@ -227,8 +213,7 @@ fix_certificate_problem() {
     rmdir $VAR_RUN
 
     echo -e "\rDone! Broo will hopefully work without hiccups now!"
-}  # End of fix_certificate_problem()
-
+} # End of fix_certificate_problem()
 
 force_kill_broo() {
     # Force kill Broo by killing processes and deleting $VAR_RUN folder.
@@ -243,8 +228,7 @@ force_kill_broo() {
     else
         pulseaudio -k || true
     fi
-}  # End of force_kill_broo()
-
+} # End of force_kill_broo()
 
 stop_broo() {
     # Terminates Broo with its required things.
@@ -269,24 +253,26 @@ stop_broo() {
     rmdir $VAR_RUN
 
     echo -e "\nTerminated."
-}  # End of stop_broo()
-
+} # End of stop_broo()
 
 initiate() {
     # The main stuff initiates here. Needs one 1-char argument.
 
     case $1 in
-        f|F) force_kill_broo ;&  # Fallthrough to the next case.
-        s|S) start_broo ;;
-        c|C) stop_broo ;;
-        q|Q) force_kill_broo; echo "Force killed the requisite processes." ;;
-        p|P) fix_certificate_problem ;;
-        *)  echo "Shoo away your cat from the keyboard man!"
-            exit 1
-            ;;
+    f | F) force_kill_broo ;& # Fallthrough to the next case.
+    s | S) start_broo ;;
+    c | C) stop_broo ;;
+    q | Q)
+        force_kill_broo
+        echo "Force killed the requisite processes."
+        ;;
+    p | P) fix_certificate_problem ;;
+    *)
+        echo "Shoo away your cat from the keyboard man!"
+        exit 1
+        ;;
     esac
-}  # End of initiate()
-
+} # End of initiate()
 
 help_text() {
     # Sends the help text when `-h` or `--help` in command-line arguments.
@@ -311,26 +297,26 @@ help_text() {
             -f, --force-start    Equivalent to using 'f' on Broo's prompt.
             -p, --certificate    Equivalent to using 'p' on Broo's prompt.
     " | cut -c 9- | head -n -1 | tail -n +2
-}  # End of help_text()
-
+} # End of help_text()
 
 # Script on calling starts from here.
 
 case ${1-prompt} in
-    prompt) read -n1 -p "Do you want to start Broo, or close it? (s/c): " todo
-            echo -e "\n"
-            initiate "$todo"
-            ;;
-    -h|--help) help_text ;;
-    -s|--start) initiate "s" ;;
-    -c|--close) initiate "c" ;;
-    -q|--force-quit) initiate "q" ;;
-    -f|--force-start) initiate "f" ;;
-    -p|--certificate) initiate "p" ;;
-    *) echo "Shoo away your cat from the keyboard man!"
-       exit 1
-       ;;
+prompt)
+    read -n1 -p "Do you want to start Broo, or close it? (s/c): " todo
+    echo -e "\n"
+    initiate "$todo"
+    ;;
+-h | --help) help_text ;;
+-s | --start) initiate "s" ;;
+-c | --close) initiate "c" ;;
+-q | --force-quit) initiate "q" ;;
+-f | --force-start) initiate "f" ;;
+-p | --certificate) initiate "p" ;;
+*)
+    echo "Shoo away your cat from the keyboard man!"
+    exit 1
+    ;;
 esac
-
 
 # End of file.
